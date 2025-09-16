@@ -1,119 +1,99 @@
-# AWS Provider Configuration
+# Terraform Configuration without Cloud Providers
 terraform {
   required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.0"
     }
   }
 }
 
-# Configure the AWS Provider
-provider "aws" {
-  region = var.aws_region
-}
-
 # Variables
-variable "aws_region" {
-  description = "AWS region for resources"
+variable "greeting_message" {
+  description = "Message to display in hello world output"
   type        = string
-  default     = "us-east-1"
+  default     = "Hello, World from Terraform!"
 }
 
-variable "instance_type" {
-  description = "EC2 instance type"
+variable "shell_command" {
+  description = "Shell command to execute"
   type        = string
-  default     = "t2.micro"
+  default     = "echo 'Hello from shell command executed by Terraform!'"
 }
 
-variable "instance_name" {
-  description = "Name tag for the EC2 instance"
+variable "output_file_name" {
+  description = "Name of the output file to create"
   type        = string
-  default     = "terraform-ec2-instance"
+  default     = "terraform-output.txt"
 }
 
-# Data source to get the default VPC
-data "aws_vpc" "default" {
-  default = true
+# Local file resource - creates a file with content
+resource "local_file" "hello_world_file" {
+  filename = var.output_file_name
+  content  = <<-EOT
+    ${var.greeting_message}
+    
+    This file was created by Terraform without using any cloud providers.
+    Timestamp: ${timestamp()}
+    
+    Terraform maintains state for this local file operation.
+  EOT
 }
 
-# Data source to get the default subnet
-data "aws_subnet" "default" {
-  vpc_id            = data.aws_vpc.default.id
-  availability_zone = data.aws_availability_zones.available.names[0]
+# Null resource to execute shell commands
+resource "null_resource" "hello_shell_command" {
+  # This will run every time due to the timestamp trigger
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = var.shell_command
+  }
+
+  # Depends on the file being created first
+  depends_on = [local_file.hello_world_file]
 }
 
-# Data source to get available availability zones
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-# Data source to get the latest Amazon Linux 2 AMI
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+# Another shell command example - list current directory
+resource "null_resource" "list_directory" {
+  triggers = {
+    always_run = timestamp()
   }
 
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-}
-
-# Security Group for EC2 instance
-resource "aws_security_group" "ec2_sg" {
-  name_prefix = "terraform-ec2-sg"
-  vpc_id      = data.aws_vpc.default.id
-
-  # Allow SSH access (port 22)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  provisioner "local-exec" {
+    command = "echo 'Current directory contents:' && ls -la"
   }
 
-  # Allow all outbound traffic
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "terraform-ec2-security-group"
-  }
-}
-
-# EC2 Instance
-resource "aws_instance" "main" {
-  ami                    = data.aws_ami.amazon_linux.id
-  instance_type          = var.instance_type
-  subnet_id              = data.aws_subnet.default.id
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
-
-  tags = {
-    Name = var.instance_name
-  }
+  depends_on = [null_resource.hello_shell_command]
 }
 
 # Outputs
-output "instance_id" {
-  description = "ID of the EC2 instance"
-  value       = aws_instance.main.id
+output "greeting_message" {
+  description = "The hello world message"
+  value       = var.greeting_message
 }
 
-output "instance_public_ip" {
-  description = "Public IP address of the EC2 instance"
-  value       = aws_instance.main.public_ip
+output "created_file_path" {
+  description = "Path to the created file"
+  value       = local_file.hello_world_file.filename
 }
 
-output "instance_private_ip" {
-  description = "Private IP address of the EC2 instance"
-  value       = aws_instance.main.private_ip
+output "file_content_md5" {
+  description = "MD5 hash of the created file content"
+  value       = local_file.hello_world_file.content_md5
+}
+
+output "executed_command" {
+  description = "The shell command that was executed"
+  value       = var.shell_command
+}
+
+output "timestamp" {
+  description = "Timestamp when resources were created"
+  value       = timestamp()
 }
