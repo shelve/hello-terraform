@@ -1,0 +1,23 @@
+# Example variable values for HCP Terraform
+# Copy these to your HCP Terraform workspace variables
+
+# AWS Region
+aws_region = "us-east-1"
+
+# Project Name
+project_name = "dumb-terraform"
+
+# Environment
+environment = "dev"
+
+# Instance Type (t3.micro is eligible for AWS free tier)
+instance_type = "t3.micro"
+
+# Number of instances to create
+instance_count = 1
+
+# Key pair name for SSH access (optional - create in AWS Console first)
+# key_pair_name = "my-key-pair"
+
+# CIDR blocks allowed for SSH access (restrict this for security)
+allowed_cidr_blocks = ["0.0.0.0/0"]
